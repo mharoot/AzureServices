@@ -21,7 +21,7 @@ namespace WebAppName.Controllers
         public async Task<string> Get()
         {
             const string secretName = "SharePointClientSecret";
-            const string keyVaultName = "hl-d-wus2-pgcdn-kv-01";
+            const string keyVaultName = Environment.GetEnvironmentVariable("AZURE_KEY_VAULT_NAME");
 
             // Use Managed Identity to get a token for Key Vault
             var azureServiceTokenProvider = new AzureServiceTokenProvider();

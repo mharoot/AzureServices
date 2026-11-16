@@ -1,4 +1,22 @@
+/*
+This code example works with Microsoft Entra ID (formerly Azure Active Directory). It uses the official Microsoft Authentication Library (MSAL.NET) to handle the OAuth 2.0 / OpenID Connect authorization code flow.
+Here is a breakdown of how it integrates with Entra ID and a few potential gotchas to watch out for in this specific implementation:
 
+How it Connects to Microsoft Entra ID
+
+• MSAL.NET Library: It imports Microsoft.Identity.Client and uses ConfidentialClientApplicationBuilder, which is the standard MSAL class for server-side web applications.
+• Entra ID Endpoints: Setting .WithAuthority($"https://login.microsoftonline.com/{tenantId}") points the application directly to Microsoft Entra ID's v2.0 authentication endpoint for your specific tenant.
+• Token Exchange: Calling AcquireTokenByAuthorizationCode exchanges the temporary code returned by Entra ID for an actual ID token (result.IdToken) containing the user's profile claims.
+
+Important Caveats & Potential Issues in This Code
+
+While the Entra ID authentication logic is valid, there are a few ASP.NET Framework quirks in this snippet that could cause runtime errors:
+• Web API Session State: In standard ASP.NET Web API (ApiController), HttpContext.Current.Session is null by default. Unless you have explicitly enabled session state in your Global.asax (PostAuthenticateRequest), trying to set HttpContext.Current.Session["Email"] will throw a NullReferenceException.
+• Missing state Parameter Validation: In a production OAuth 2.0 flow, you should pass and validate a state parameter alongside the code parameter to prevent Cross-Site Request Forgery (CSRF) attacks.
+• Missing Claims: Depending on how your Entra ID tenant is configured, given_name and family_name might not always be included in the ID token by default unless configured in the app registration's Token configuration blade.
+• Exact Redirect URI Match: The redirectUri built dynamically using APP_POOL_ID must match one of the Web Redirect URIs registered in the Entra ID portal character-for-character (including trailing slashes and http vs https).
+
+*/
 using Microsoft.Identity.Client;
 using System;
 using System.Configuration;

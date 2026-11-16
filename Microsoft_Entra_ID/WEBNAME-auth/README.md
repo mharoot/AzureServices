@@ -73,3 +73,10 @@ To get `given_name` / `family_name` / `email`, add them under *Token configurati
 - **Session fixation:** classic ASP.NET doesn't rotate the session id on login. If your threat model needs it, regenerate via `SessionIDManager` or move to OWIN cookie auth / Forms auth ticket.
 - Consider replacing the hand-rolled flow with `Microsoft.Identity.Web`/OWIN OpenID Connect middleware if you can touch the pipeline.
 - The code was written without a .NET SDK available, so it has **not been compiled or run**; first step is `dotnet test` / Test Explorer in Visual Studio.
+
+## Employee sync module (Salesforce)
+
+`WEBNAME.EmployeeSync/` is a Salesforce-to-sink pipeline (pagination, batching, retry/backoff, regional failover,
+checkpoint recovery, replay, dead-lettering). `WEBNAME.EmployeeSync.IntegrationTests/` tests it over real HTTP against an
+in-process fake Salesforce, plus an optional live-sandbox test. See `docs/RUNBOOK.md`, `docs/INTERVIEW-GUIDE.md` and
+`.github/workflows/ci-cd.yml`. Like everything here, it has not been compiled (no .NET SDK in the authoring environment).

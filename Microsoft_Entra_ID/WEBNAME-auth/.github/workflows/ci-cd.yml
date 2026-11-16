@@ -1,0 +1,106 @@
+# Build once, promote the SAME artifact through dev -> UAT -> production.
+# Approvals live in GitHub "Environments" (Settings -> Environments): add required reviewers to `uat`
+# and `production`, and a wait timer on `production`. Secrets are scoped per environment.
+name: ci-cd
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build
+        run: dotnet build WEBNAME.EmployeeSync.IntegrationTests -c Release
+
+      # Integration tests run on every PR against the in-process fake Salesforce: fast, free, no secrets.
+      - name: Test (integration, fake Salesforce)
+        run: >
+          dotnet test WEBNAME.EmployeeSync.IntegrationTests -c Release --no-build
+          --filter "Category!=LiveSalesforce"
+          --logger "trx;LogFileName=results.trx" --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults
+
+      - name: Publish package
+        if: github.ref == 'refs/heads/main'
+        run: dotnet publish WEBNAME.EmployeeSync -c Release -o publish
+
+      - name: Upload build artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: employee-sync
+          path: publish
+
+  deploy-dev:
+    needs: build-test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - uses: actions/download-artifact@v4
+        with:
+          name: employee-sync
+          path: publish
+
+      - name: Deploy to dev
+        run: echo "PLACEHOLDER - e.g. azure/functions-action or az webapp deploy of ./publish to the dev app"
+
+      # Proves the dev Connected App credentials + network path against a real Salesforce SANDBOX.
+      - name: Live Salesforce sandbox test
+        run: >
+          dotnet test WEBNAME.EmployeeSync.IntegrationTests -c Release
+          --filter "Category=LiveSalesforce"
+        env:
+          SF_INSTANCE_URL: ${{ vars.SF_INSTANCE_URL }}
+          SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
+          SF_CLIENT_SECRET: ${{ secrets.SF_CLIENT_SECRET }}
+
+  deploy-uat:
+    needs: deploy-dev
+    runs-on: ubuntu-latest
+    environment: uat            # required reviewers configured on this environment
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: employee-sync
+          path: publish
+      - name: Deploy to UAT
+        run: echo "PLACEHOLDER - deploy the same ./publish artifact to UAT, then run smoke checks"
+
+  deploy-production:
+    needs: deploy-uat
+    runs-on: ubuntu-latest
+    environment: production     # required reviewers + wait timer configured on this environment
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: employee-sync
+          path: publish
+      - name: Deploy to production
+        run: echo "PLACEHOLDER - deploy the same ./publish artifact; keep the previous artifact for rollback"
